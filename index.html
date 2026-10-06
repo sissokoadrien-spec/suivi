@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mon suivi</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#2f6fed">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Suivi">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f6f7f9;--card:#fff;--tx:#1b1f24;--mut:#6b7380;--ac:#2f6fed;--bd:#e3e6ea}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111418;--card:#1b2026;--tx:#eef1f5;--mut:#98a1ad;--ac:#5b8cff;--bd:#2c333b}}
+:root[data-theme="dark"]{--bg:#111418;--card:#1b2026;--tx:#eef1f5;--mut:#98a1ad;--ac:#5b8cff;--bd:#2c333b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px;max-width:520px;margin:0 auto}
+h1{font-size:22px;margin:4px 0 14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:13px;color:var(--mut);margin-bottom:6px}
+input[type=date],input[type=number]{width:100%;font-size:18px;padding:10px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)}
+.row{display:flex;gap:8px}
+.row button{flex:1;font-size:20px;padding:12px 0;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)}
+.row button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.save{width:100%;font-size:17px;padding:14px;border:0;border-radius:12px;background:var(--ac);color:#fff;font-weight:600}
+.msg{text-align:center;font-size:13px;color:var(--mut);min-height:18px;margin:6px 0}
+.stats{display:flex;gap:8px}.stats div{flex:1;text-align:center}
+.stats b{display:block;font-size:20px}.stats span{font-size:12px;color:var(--mut)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:7px 4px;text-align:center;border-bottom:1px solid var(--bd)}
+th{color:var(--mut);font-weight:500;font-size:12px}
+td:first-child,th:first-child{text-align:left}
+svg{width:100%;height:120px;display:block}
+.del{background:none;border:0;color:var(--mut);font-size:16px}
+</style>
+</head>
+<body>
+<h1>📊 Mon suivi quotidien</h1>
+
+<div class="card">
+  <label for="d">Date</label>
+  <input type="date" id="d">
+  <label for="w" style="margin-top:12px">Poids (kg)</label>
+  <input type="number" id="w" step="0.1" inputmode="decimal" placeholder="ex : 72.4">
+  <label style="margin-top:12px">Sport (1 à 5)</label>
+  <div class="row" id="sp"></div>
+  <label style="margin-top:12px">Alimentation (1 à 5)</label>
+  <div class="row" id="fo"></div>
+</div>
+<button class="save" id="save">Enregistrer</button>
+<div class="msg" id="msg"></div>
+
+<div class="card"><div class="stats">
+  <div><b id="s1">–</b><span>Poids moy. 7 j</span></div>
+  <div><b id="s2">–</b><span>Sport moy. 7 j</span></div>
+  <div><b id="s3">–</b><span>Alim. moy. 7 j</span></div>
+</div></div>
+
+<div class="card"><label>Évolution du poids</label><svg id="ch" viewBox="0 0 300 120" preserveAspectRatio="none"></svg></div>
+
+<div class="card"><table><thead><tr><th>Date</th><th>Poids</th><th>Sport</th><th>Alim.</th><th></th></tr></thead><tbody id="tb"></tbody></table></div>
+
+<div class="card" style="text-align:center"><button class="del" id="ex" style="font-size:14px;text-decoration:underline">Exporter mes données (sauvegarde)</button> · <button class="del" id="im" style="font-size:14px;text-decoration:underline">Importer</button><input type="file" id="fi" accept=".json" hidden></div>
+<script>
+var entries={}, sport=0, food=0, store=null;
+var $=function(i){return document.getElementById(i)};
+function today(){var t=new Date();t.setMinutes(t.getMinutes()-t.getTimezoneOffset());return t.toISOString().slice(0,10)}
+function msg(t){$('msg').textContent=t;setTimeout(function(){$('msg').textContent=''},2500)}
+function buildRow(id,get,set){var h='';for(var i=1;i<=5;i++)h+='<button data-v="'+i+'">'+i+'</button>';var el=$(id);el.innerHTML=h;
+  el.onclick=function(e){var v=+e.target.getAttribute('data-v');if(!v)return;set(v===get()?0:v);paint()}}
+function paint(){['sp','fo'].forEach(function(id){var cur=id==='sp'?sport:food;[].forEach.call($(id).children,function(b){b.className=(+b.getAttribute('data-v')===cur)?'on':''})})}
+buildRow('sp',function(){return sport},function(v){sport=v});
+buildRow('fo',function(){return food},function(v){food=v});
+
+function loadDay(){var e=entries[$('d').value];$('w').value=e&&e.w!=null?e.w:'';sport=e?e.s||0:0;food=e?e.f||0:0;paint()}
+$('d').value=today();$('d').onchange=loadDay;
+
+function avg(a){return a.length?(a.reduce(function(x,y){return x+y},0)/a.length):null}
+function render(){
+  var keys=Object.keys(entries).sort();
+  var last=keys.slice(-7).map(function(k){return entries[k]});
+  var w=avg(last.filter(function(e){return e.w!=null}).map(function(e){return e.w}));
+  var s=avg(last.filter(function(e){return e.s}).map(function(e){return e.s}));
+  var f=avg(last.filter(function(e){return e.f}).map(function(e){return e.f}));
+  $('s1').textContent=w!=null?w.toFixed(1):'–';$('s2').textContent=s!=null?s.toFixed(1):'–';$('s3').textContent=f!=null?f.toFixed(1):'–';
+  var tb='';keys.slice().reverse().slice(0,30).forEach(function(k){var e=entries[k];
+    tb+='<tr><td>'+k.slice(8)+'/'+k.slice(5,7)+'</td><td>'+(e.w!=null?e.w:'–')+'</td><td>'+(e.s||'–')+'</td><td>'+(e.f||'–')+'</td><td><button class="del" data-k="'+k+'">✕</button></td></tr>'});
+  $('tb').innerHTML=tb||'<tr><td colspan="5" style="color:var(--mut)">Aucune entrée</td></tr>';
+  var pts=keys.filter(function(k){return entries[k].w!=null}).slice(-30).map(function(k){return entries[k].w});
+  var svg=$('ch');
+  if(pts.length<2){svg.innerHTML='<text x="150" y="60" text-anchor="middle" font-size="11" fill="#999">Au moins 2 pesées pour la courbe</text>';return}
+  var mn=Math.min.apply(null,pts)-.5,mx=Math.max.apply(null,pts)+.5,p='';
+  pts.forEach(function(v,i){p+=(i?'L':'M')+(10+i*280/(pts.length-1)).toFixed(1)+' '+(110-(v-mn)/(mx-mn)*100).toFixed(1)});
+  svg.innerHTML='<path d="'+p+'" fill="none" stroke="#2f6fed" stroke-width="2" vector-effect="non-scaling-stroke"/>'}
+
+$('tb').onclick=function(e){var k=e.target.getAttribute('data-k');if(!k)return;delete entries[k];store.del(k);render();loadDay()};
+$('save').onclick=function(){
+  var d=$('d').value;if(!d)return;var wv=parseFloat($('w').value.replace(',','.'));
+  var e={w:isNaN(wv)?null:wv,s:sport,f:food};
+  if(e.w==null&&!e.s&&!e.f){msg('Rien à enregistrer');return}
+  entries[d]=e;store.set(d,e).then(function(){msg('Enregistré ✓')},function(){msg('Enregistré sur cet appareil')});render()};
+
+function localStore(){
+  var K='suivi_entries';
+  try{var r=localStorage.getItem(K);if(r)entries=JSON.parse(r)||{}}catch(x){}
+  function sv(){try{localStorage.setItem(K,JSON.stringify(entries))}catch(x){}}
+  return{set:function(k,v){sv();return Promise.resolve()},del:function(k){sv()}}}
+
+store=localStore();loadDay();render();
+
+
+$('ex').onclick=function(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(entries)],{type:'application/json'}));a.download='suivi-sauvegarde.json';a.click()};
+$('im').onclick=function(){$('fi').click()};
+$('fi').onchange=function(){var f=this.files[0];if(!f)return;var r=new FileReader();r.onload=function(){try{var o=JSON.parse(r.result);Object.keys(o).forEach(function(k){entries[k]=o[k];store.set(k,o[k])});render();loadDay();msg('Import réussi ✓')}catch(x){msg('Fichier invalide')}};r.readAsText(f)};
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});
+</script>
+</body>
+</html>
